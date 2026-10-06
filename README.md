@@ -1,662 +1,146 @@
-VoltRelay Energy --- Network Performance Analysis
+# VoltRelay Energy: Network Performance Analysis
 
-Hackathon project: end-to-end data analysis of an electric vehicle
-battery-swapping network.
+End to end data analysis of an electric vehicle battery swapping network, built for **[Data Analytics Hackathon '26 BY Gradient Learnings ]**.
 
-Overview
+**Notebook (Google Colab):** [Open in Colab](https://colab.research.google.com/drive/1qPapjZWOzOgm69rXilYp070uXhCZINi8)
 
-VoltRelay Energy --- Network Performance Analysis is a large-scale
-exploratory and business analytics project built to understand the
-operational, technical, financial, and customer-retention performance of
-a battery-swapping network.
+---
 
-The analysis combines swap transactions with station telemetry, rider
-profiles, battery information, customer-support tickets, city-level
-context, station metadata, and fleet-partner contracts.
+## Overview
 
-The project focuses on identifying:
+This project analyzes the operational, technical, financial and customer retention performance of a battery swapping network. It combines swap transactions with station telemetry, rider profiles, battery data, support tickets, city level context, station metadata and fleet partner contracts.
 
-Network performance trends over time
+The analysis answers six business questions:
 
-Swap failure patterns by charger generation, city, station, and time
+1. How is network performance changing over time?
+2. Where and when are swap failures concentrated?
+3. What station and geographic characteristics are linked to performance differences?
+4. How do batteries and charger equipment affect operations?
+5. How do pricing and fleet-partner contracts affect economics?
+6. Which operational factors are associated with early rider churn?
 
-Station and geographic performance differences
+## Dataset
 
-Battery and equipment health patterns
+The raw data was provided by the hackathon organizers. **The CSV files are not included in this repository** because of their size (3.8M+ rows in the largest file). To rerun the analysis, place the files in `data/raw/` or upload them to Colab.
 
-Pricing and partner economics
+| File | Rows | Purpose |
+|---|---|---|
+| `swap_events.csv` | 3,877,013 | Swap attempts, failures, queue time, battery, pricing, transactions |
+| `station_hourly_status.csv` | 1,487,712 | Hourly capacity, charging, temperature, outages, telemetry |
+| `riders.csv` | 20,000 | Rider profiles, vehicles, plans, signup details, cities |
+| `batteries.csv` | 6,500 | Supplier, capacity, SOH, firmware, retirement |
+| `support_tickets.csv` | 44,000 | Issue categories, resolution, CSAT |
+| `stations.csv` | 152 | Location, charger generation, capacity, connectivity |
+| `city_daily_context.csv` | 3,282 | Weather, outages, holidays, events, competition |
+| `fleet_partners.csv` | [12] | Partner contracts, discounts, amendments |
 
-Early rider-retention/churn drivers
+## Tech Stack
 
-Operational root causes that can be translated into business actions
+Python 3.13 · Pandas · NumPy · Matplotlib · Seaborn · Jupyter / Google Colab
 
-Project Objectives
+## Workflow
 
-The analysis answers six major business questions:
+```
+Raw CSVs -> Load & validate -> Data quality checks -> Cleaning
+        -> Feature engineering -> Table joins
+        -> Six analyses (performance, failures, stations, batteries, pricing, retention)
+        -> Visualizations -> Business recommendations
+```
 
-How is network performance changing over time?
+## Data Quality & Cleaning
 
-Where and when are swap failures concentrated?
+| Issue | Handling |
+|---|---|
+| Firmware v3.2.0 timestamp error (Mar 10 to Apr 14, 2025), 139,490 rows | Shifted timestamps by 5h 30m |
+| Inconsistent city names (Bengaluru, Bangalore, BLR, MUM, HYD, ...) | Normalized to 6 canonical cities |
+| Two test stations (`STN-TST` prefix) | Separated from the clean station view |
+| Near-duplicate swap events (same rider and station within 2 min, offline sync) | Flagged 652 likely duplicates |
+| Negative `km_since_last_swap` values (7,814) | Set to missing |
+| SOC/SOH values above 100% (sensor drift) | Capped at 100 |
 
-What station and geographic characteristics are associated with
-performance differences?
+**Engineered features:** `is_completed`, `event_date`, `hour_of_day`, `event_month`, `season`, `rider_tenure_days`, `energy_cost_inr`, `contribution_inr`, `soh_degradation`, rider churn indicators, station-level failure rates and partner-level contribution metrics.
 
-How do batteries and charger/equipment characteristics affect
-operations?
+## Key Findings
 
-How do pricing structures and fleet-partner contracts affect
-economics?
+**1. Network performance**
+- Swap volume and revenue grow over the period, but failure rates spike every April to June, which the analysis links to extreme-heat periods. The pattern repeats in 2025.
+- A pricing change around July 2024 is associated with higher contribution per swap.
 
-What operational factors are associated with early rider churn?
+**2. Failure patterns**
 
-Dataset
+| Charger generation | Failure rate | | City | Failure rate |
+|---|---|---|---|---|
+| Gen1 | 7.23% | | Jaipur | 7.85% |
+| Gen2 | 4.84% | | Delhi NCR | 7.35% |
+| Gen3 | 4.84% | | Hyderabad | 6.69% |
+| | | | Pune | 4.99% |
+| | | | Bengaluru | 4.56% |
+| | | | Mumbai | 4.45% |
 
-The notebook works with eight related datasets:
+Failures also concentrate in evening peak hours.
 
-Dataset                                               Rows Purpose
+**3. Stations and equipment**
+- Failure rates differ far more by charger generation than by location type.
+- Average turnaround time: Gen1 about **91.8 min** vs Gen3 about **42.1 min**.
 
-swap_events.csv                                3,877,013 Swap attempts,
-failures, queue time,
-battery, pricing and
-transaction
-information
+**4. Batteries**
+- Average degradation: Amptek 18.19 pp, Cellora 18.25 pp, **Kyron 35.46 pp**.
+- Lower battery health goes with shorter distance between swaps: 44.2 km (SOH below 70%) vs 70.1 km (SOH 90 to 100%).
 
-station_hourly_status.csv                      1,487,712 Hourly station
-capacity, charging,
-temperature, outages
-and telemetry
+**5. Pricing and partners**
+- Peak tariff has the highest average contribution per completed swap.
+- ZipDrop's discount rose from 12% to 28% on Nov 1, 2024, reducing contribution by an estimated ₹6.31 per swap, about **₹21.5 lakh** in the analyzed post amendment period.
 
-riders.csv                                        20,000 Rider profiles,
-vehicles, plans,
-signup information
-and cities
+**6. Early churn**
+- 6,762 riders were observable; 1,443 were early churners (**21.34%**).
+- Average personal failure rate in the first 30 days: **7.93%** for churned riders vs **5.37%** for retained riders.
 
-batteries.csv                                      6,500 Battery supplier,
-capacity, SOH,
-firmware and
-retirement
-information
+## Recommendations
 
-support_tickets.csv                               44,000 Rider issues, ticket
-categories,
-resolution and CSAT
-information
-
-stations.csv                                         152 Station location,
-charger generation,
-capacity,
-connectivity and
-commercial
-information
-
-city_daily_context.csv                             3,282 Weather, outages,
-holidays, events and
-competitive context
-
-The notebook also performs dataset row-count validation before analysis.
-
-Tech Stack
-
-Python 3.13.7
-
-Pandas --- data manipulation and aggregation
-
-NumPy --- numerical operations
-
-Matplotlib --- visualization
-
-Seaborn --- statistical/data visualization
-
-Jupyter Notebook --- interactive analysis
-
-Analysis Workflow
-
-Raw CSV datasets
-       │
-       ▼
-Data loading & validation
-       │
-       ▼
-Data understanding
-       │
-       ▼
-Data quality checks
-       │
-       ▼
-Data cleaning
-       │
-       ▼
-Feature engineering
-       │
-       ▼
-Dataset joins / enrichment
-       │
-       ├── Network performance
-       ├── Failure analysis
-       ├── Station & geographic analysis
-       ├── Battery/equipment analysis
-       ├── Pricing & partner economics
-       └── Rider retention analysis
-       │
-       ▼
-Visualizations & findings
-       │
-       ▼
-Business recommendations
-
-Data Quality & Cleaning
-
-The notebook performs several practical data-quality checks before
-drawing conclusions.
-
-Timestamp correction
-
-A firmware-specific timestamp issue was identified for v3.2.0 events
-between March 10 and April 14, 2025.
-
-139,490 rows were affected.
-
-The timestamps were shifted by 5 hours 30 minutes during
-cleaning.
-
-City normalization
-
-Rider city values contained multiple representations such as:
-
-Bengaluru
-
-Bangalore
-
-BLR
-
-bengaluru
-
-Delhi
-
-New Delhi
-
-Gurgaon
-
-MUM
-
-HYD
-
-JAI
-
-These were normalized into six canonical city labels:
-
-Bengaluru
-
-Delhi NCR
-
-Hyderabad
-
-Pune
-
-Mumbai
-
-Jaipur
-
-Test stations
-
-Two test stations were identified using the STN-TST prefix and
-separated from the clean station view used for network-performance
-analysis.
-
-Duplicate detection
-
-The notebook flags likely near-duplicate swap events using:
-
-Same rider
-
-Same station
-
-Events within 2 minutes
-
-offline_batch synchronization mode
-
-This identified 652 likely near-duplicate events.
-
-Invalid distance values
-
-Negative km_since_last_swap values were treated as invalid and
-converted to missing values.
-
-7,814 negative values were detected.
-
-Percentage-value correction
-
-Battery SOC/SOH-related percentage fields were checked for values above
-100%.
-
-The affected values were capped at 100 as part of the sensor-drift
-correction.
-
-Feature Engineering
-
-The analysis creates several derived variables, including:
-
-is_completed
-
-event_date
-
-hour_of_day
-
-event_month
-
-season
-
-rider_tenure_days
-
-energy_cost_inr
-
-contribution_inr
-
-soh_degradation
-
-Rider activity and churn indicators
-
-Station-level failure rates
-
-Partner-level contribution metrics
-
-The swap dataset is enriched using station, rider, battery, and partner
-information.
-
-Key Findings
-
-1. Network Performance
-
-Swap volume and revenue increase over the analyzed period.
-
-However, the growth hides recurring operational problems:
-
-Failure rates show recurring increases during April--June.
-
-The notebook associates this recurring pattern with extreme-heat
-periods.
-
-A pricing change around July 2024 is associated with a higher
-contribution per swap.
-
-The seasonal failure pattern appears again in 2025.
-
-The analysis therefore separates growth metrics from underlying
-service-quality metrics rather than treating increasing revenue alone
-as evidence of operational improvement.
-
-2. Swap Failure Patterns
-
-Failure rates vary substantially by charger generation.
-
-Charger generation     Failure rate
-
-Gen1                          7.23%
-Gen2                          4.84%
-Gen3                          4.84%
-
-The notebook also identifies concentration during evening peak periods.
-
-City-level failure rates in the analysis were:
-
-City          Failure rate
-
-Jaipur               7.85%
-Delhi NCR            7.35%
-Hyderabad            6.69%
-Pune                 4.99%
-Bengaluru            4.56%
-Mumbai               4.45%
-
-These are descriptive results from the analyzed dataset and should not
-be interpreted as causal estimates.
-
-3. Station & Geographic Patterns
-
-The analysis compares performance across station location types and host
-types.
-
-Failure rates by location type were relatively close compared with the
-differences observed across charger generations.
-
-The notebook therefore treats location as useful context while
-investigating equipment and operational characteristics as important
-explanatory factors.
-
-A major equipment finding is the difference in turnaround time:
-
-Gen1: approximately 91.8 minutes
-
-Gen3: approximately 42.1 minutes
-
-The analysis also examines 3W station capacity and identifies stations
-with high 3W demand relative to their inventory targets.
-
-4. Battery & Equipment Performance
-
-Battery supplier analysis shows substantial differences in degradation.
-
-Supplier            Avg. degradation
-
-Amptek       18.19 percentage points
-Cellora      18.25 percentage points
-Kyron        35.46 percentage points
-
-The notebook also finds that lower battery SOH is associated with lower
-observed distance between swaps:
-
-SOH band     Avg. km since previous swap
-
-<70                           44.23 km
-70–80                         50.87 km
-80–90                         56.92 km
-90–100                        70.09 km
-
-This analysis indicates a strong relationship between battery health and
-observed range.
-
-5. Pricing & Partner Economics
-
-The analysis compares contribution across tariff types.
-
-The peak tariff has a higher average contribution per completed swap
-than the other analyzed tariff categories.
-
-A major partner-level finding concerns ZipDrop:
-
-Original discount: 12%
-
-Post-amendment discount: 28%
-
-Amendment date: November 1, 2024
-
-Estimated contribution-margin reduction: ₹6.31 per swap
-
-Estimated total margin impact in the analyzed post-amendment period:
-approximately ₹21.5 lakh
-
-The ₹21.5 lakh figure is an estimate produced by the notebook's
-before/after comparison and should be interpreted in that context rather
-than as a controlled causal estimate.
-
-6. Rider Retention & Early Churn
-
-The notebook defines an early-churn group as riders who:
-
-Were active for 30 days or less from their first completed swap,
-and
-
-Had at least 60 days of subsequent data available to confirm
-that they did not return.
-
-Using this definition:
-
-6,762 riders were observable for the churn analysis.
-
-1,443 were classified as early churners.
-
-Early churn rate: 21.34%
-
-A key finding is the difference in personal failure experience:
-
-Rider group     Avg. personal failure rate in first 30 days
-
-Retained                                              5.37%
-Early churn                                           7.93%
-
-The notebook therefore identifies early service failure exposure as an
-important factor associated with early churn.
-
-The analysis also compares churn across:
-
-Signup channel
-
-City
-
-Fleet affiliation
-
-Vehicle class
-
-Plan type
-
-KYC verification
-
-These comparisons are descriptive and do not establish that any one
-variable independently causes churn.
-
-Business Recommendations Derived from the Analysis
-
-The notebook's final recommendation direction focuses on several
-operational areas:
-
-1. Prioritize Gen1 charger replacement
-
-Gen1 chargers show higher failure rates and substantially longer
-turnaround times in the analyzed data.
-
-2. Prepare for seasonal heat-related failures
-
-The recurring April--June failure pattern suggests that
-thermal-management and summer-readiness measures should be investigated
-before the next high-temperature period.
-
-3. Review battery-supplier performance
-
-The battery analysis identifies substantial differences in degradation
-and observed range, particularly for Kyron in this dataset.
-
-4. Review high-impact partner contracts
-
-The ZipDrop contract amendment is associated with a significant
-contribution-margin decline in the notebook's before/after analysis.
-
-5. Monitor new-rider service quality
-
-Because early churners experienced higher personal failure rates during
-their first 30 days, reducing early failed swaps could be a useful
-retention-focused operational metric.
-
-Visualizations
-
-The notebook generates visualizations for reporting, including:
-
-Network performance trends
-
-Failure-rate comparisons
-
-Charger-generation analysis
-
-Rider churn vs. service-failure experience
-
-Other station, battery, pricing, and operational comparisons
-
-Generated figures are saved under the project's outputs/figures/
-directory when the corresponding notebook cells are executed.
-
-Project Structure
-
-A recommended GitHub structure is:
-
-VoltRelay-Energy/
-│
-├── data/
-│   └── raw/
-│       ├── swap_events.csv
-│       ├── station_hourly_status.csv
-│       ├── riders.csv
-│       ├── batteries.csv
-│       ├── support_tickets.csv
-│       ├── stations.csv
-│       ├── city_daily_context.csv
-│       └── fleet_partners.csv
-│
-├── notebooks/
-│   └── VoltRelay_Energy_Network_Performance_Analysis.ipynb
-│
-├── outputs/
-│   └── figures/
-│
+1. Prioritize replacing Gen1 chargers (higher failures, much slower turnaround).
+2. Prepare thermal-management and summer readiness measures before April to June.
+3. Review battery supplier performance, especially Kyron.
+4. Review high impact partner contracts such as the ZipDrop amendment.
+5. Track failed swaps in a rider's first 30 days as a retention metric.
+
+## Visualizations
+
+<!-- Add your chart images to an `images/` folder and uncomment the lines below -->
+<!-- ![Failure rate by charger generation](images/failure_by_charger.png) -->
+<!-- ![Churn vs personal failure rate](images/churn_vs_failure.png) -->
+
+## Repository Structure
+
+```
+VoltRelay_Energy/
+├── notebooks/        # Analysis notebook
+├── images/           # Chart screenshots used in this README
 ├── README.md
-└── requirements.txt
+├── requirements.txt
+└── .gitignore        # Excludes the large raw CSV files
+```
 
-Important
+## How to Run
 
-The raw data contains millions of rows. Before pushing the repository to
-GitHub, check the dataset size and whether the hackathon permits public
-redistribution of the provided data.
+**Option 1: Google Colab (easiest)**
+Open the [Colab notebook](https://colab.research.google.com/drive/1qPapjZWOzOgm69rXilYp070uXhCZINi8), upload the CSV files and run the cells from top to bottom.
 
-If the raw files are too large or are not permitted to be redistributed,
-keep them locally and add them to .gitignore. The notebook can remain
-in the repository with instructions explaining where the required files
-should be placed.
-
-Installation
-
-Clone the repository:
-
-git clone https://github.com/YOUR_USERNAME/VoltRelay-Energy.git
-cd VoltRelay-Energy
-
-Create a virtual environment:
-
-Windows
-
-python -m venv .venv
-.venv\Scripts\activate
-
-macOS / Linux
-
-python3 -m venv .venv
-source .venv/bin/activate
-
-Install dependencies:
-
+**Option 2: Locally**
+```bash
+git clone https://github.com/Puskar7882/VoltRelay_Energy.git
+cd VoltRelay_Energy
 pip install -r requirements.txt
-
-Start Jupyter:
-
 jupyter notebook
+```
+Place the CSV files in `data/raw/`, open the notebook in `notebooks/`, and run all cells. The notebook reads data from `../data/raw`, so run it from inside `notebooks/`.
 
-Open the notebook under:
+## Limitations
 
-notebooks/
+- This is a descriptive and diagnostic study; observed relationships do not prove causation.
+- Business-impact figures (such as the ₹21.5 lakh estimate) come from before/after comparisons, not controlled experiments.
+- The churn definition (30 days or less of activity, with 60+ days of follow-up data) was created for this project.
+- The analysis uses only the provided hackathon data, which contains known quality issues that were cleaned as described above.
 
-Requirements
+## Author
 
-Create a requirements.txt file containing:
-
-numpy
-pandas
-matplotlib
-seaborn
-jupyter
-notebook
-
-Running the Analysis
-
-Place the required CSV files inside:
-
-data/raw/
-
-Open the notebook.
-
-Run the cells from top to bottom.
-
-The notebook will:
-
-Validate the input datasets
-
-Inspect data types and missing values
-
-Perform data-quality checks
-
-Clean and normalize the data
-
-Engineer analytical features
-
-Join related datasets
-
-Perform the six analytical investigations
-
-Generate visualizations
-
-Produce the final findings and recommendation direction
-
-Reproducibility Notes
-
-The notebook currently uses relative paths such as:
-
-DATA_DIR = '../data/raw'
-
-This means the notebook should be executed from the expected notebooks
-directory structure.
-
-If your notebook is stored elsewhere, update the path accordingly.
-
-The notebook was developed with Python 3.13.7.
-
-Limitations
-
-This project is primarily a descriptive and diagnostic analytics study.
-
-Important limitations include:
-
-The analysis is based on the provided datasets.
-
-Observed relationships do not automatically imply causation.
-
-Some business-impact calculations are estimates based on
-before/after comparisons.
-
-The churn definition is an analytical definition created for this
-project.
-
-The dataset contains missing values and known data-quality issues
-that require cleaning.
-
-The notebook does not implement a production deployment or real-time
-analytics pipeline.
-
-Skills Demonstrated
-
-This project demonstrates practical skills in:
-
-Large-scale CSV data handling
-
-Exploratory Data Analysis (EDA)
-
-Data cleaning
-
-Missing-value analysis
-
-Data validation
-
-Data normalization
-
-Feature engineering
-
-Multi-table data integration
-
-GroupBy and aggregation
-
-Time-series analysis
-
-Operational analytics
-
-Customer-retention analysis
-
-Financial/business analytics
-
-Data visualization
-
-Translating data findings into business recommendations
-
-Author
-
-Puskar
-
-GitHub: Puskar7882
-
-Project Status
-
-Completed for hackathon submission.
+**Puskar Gayen** · [GitHub](https://github.com/Puskar7882)
